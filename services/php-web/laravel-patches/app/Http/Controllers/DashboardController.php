@@ -7,7 +7,11 @@ use App\Support\JwstHelper;
 
 class DashboardController extends Controller
 {
-    private function base(): string { return getenv('RUST_BASE') ?: 'http://rust_iss:3000'; }
+    private function base(): string { 
+        $base = getenv('RUST_BASE');
+        if ($base) return $base;
+        return 'http://rust_iss:3000';
+    }
 
     private function getJson(string $url, array $qs = []): array {
         if ($qs) $url .= (str_contains($url,'?')?'&':'?') . http_build_query($qs);

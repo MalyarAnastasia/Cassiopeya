@@ -19,8 +19,25 @@ if [ -d "$PATCH_DIR" ]; then
   rsync -a "$PATCH_DIR/" "$APP_DIR/"
 fi
 
+# Обновляем .env с правильными настройками БД
+if [ -f "$APP_DIR/.env" ]; then
+  echo "[php] updating .env"
+  sed -i "s|DB_CONNECTION=.*|DB_CONNECTION=pgsql|g" "$APP_DIR/.env" || true
+  sed -i "s|DB_HOST=.*|DB_HOST=db|g" "$APP_DIR/.env" || true
+  sed -i "s|DB_PORT=.*|DB_PORT=5432|g" "$APP_DIR/.env" || true
+  sed -i "s|DB_DATABASE=.*|DB_DATABASE=monolith|g" "$APP_DIR/.env" || true
+  sed -i "s|DB_USERNAME=.*|DB_USERNAME=monouser|g" "$APP_DIR/.env" || true
+  sed -i "s|DB_PASSWORD=.*|DB_PASSWORD=monopass|g" "$APP_DIR/.env" || true
+fi
+
 chown -R www-data:www-data "$APP_DIR"
 chmod -R 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
 
+# Запускаем миграции если нужно
+if [ -f "$APP_DIR/artisan" ]; then
+  echo "[php] running migrations"
+  php "$APP_DIR/artisan" migrate --force || true
+fi
+
 echo "[php] starting php-fpm"
-php-fpm -F
+exec php-fpm -F

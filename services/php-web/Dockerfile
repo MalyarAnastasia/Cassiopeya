@@ -13,6 +13,7 @@ WORKDIR /var/www/html
 
 # entrypoint
 COPY entrypoint.sh /usr/local/bin/php_entrypoint.sh
-RUN chmod +x /usr/local/bin/php_entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/php_entrypoint.sh && \
+    chmod +x /usr/local/bin/php_entrypoint.sh
 
 CMD ["bash", "/usr/local/bin/php_entrypoint.sh"]

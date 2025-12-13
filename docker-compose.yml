@@ -5,6 +5,7 @@ volumes:
   pgdata:
   appdata:
   csvdata:
+  redisdata:
 
 services:
   db:
@@ -27,18 +28,40 @@ services:
     ports:
       - "5432:5432"
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_cache
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redisdata:/data
+    networks:
+      - backend
+    ports:
+      - "6379:6379"
+
   rust_iss:
     build:
       context: ./services/rust-iss
     container_name: rust_iss
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://monouser:monopass@db:5432/monolith}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       NASA_API_URL: ${NASA_API_URL:-}
       NASA_API_KEY: ${NASA_API_KEY:-}
       FETCH_EVERY_SECONDS: ${FETCH_EVERY_SECONDS:-600}
       WHERE_ISS_URL: ${WHERE_ISS_URL:-https://api.wheretheiss.at/v1/satellites/25544}
+      USER_AGENT: ${USER_AGENT:-Cassiopeya-Space-Data-Collector/1.0}
+      RETRY_MAX_ATTEMPTS: ${RETRY_MAX_ATTEMPTS:-3}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - backend
@@ -54,8 +77,8 @@ services:
       JWST_API_KEY: baa96cdf-4a82-45f1-b986-d10a96826442
       JWST_EMAIL: burnfeniks@yandex.ru
       JWST_PROGRAM_ID: "2734"
-      ASTRO_APP_ID: "745a5e07-70ae-49fc-8014-6a509551f829"
-      ASTRO_APP_SECRET: "fe85a6503e3dd694a5d888effb336aefbbb5f54f348a134bd84126de5f69f536c5f05e75a55d395f41ae789b037bed48b7a505a690637acbf2108f5aefe3d934e0ab7b23bf469552d5eb6fc428f8ea981b02323cf3f6ec996ad7b6eab8312f786fd8c25eafc22cea532030c8dc3749c4"
+      ASTRO_APP_ID: "cec071f5-0743-4d01-8b0d-71a8498b6007"
+      ASTRO_APP_SECRET: "97d8871f2564cd39c37489c783bd19b0686f50c6dc3084a1c0b13255a504315b151006e139446e4f333194ddb99ee274189617124518833e44af3de51fbe8a5af914585990f1ad6c4207bfaadc09e39551b73e9da487597ee0bd8ca2036d598c4bfcc7bcecc8150ef5dd65c4a21814fa"
       APP_ENV: local
       APP_DEBUG: "true"
       APP_URL: http://localhost:8080

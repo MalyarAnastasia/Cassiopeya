@@ -6,6 +6,11 @@ use Illuminate\Http\Request;
 
 class AstroController extends Controller
 {
+    public function index()
+    {
+        return view('astro');
+    }
+
     public function events(Request $r)
     {
         $lat  = (float) $r->query('lat', 55.7558);

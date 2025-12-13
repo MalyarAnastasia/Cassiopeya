@@ -3,37 +3,48 @@
 @section('content')
 <div class="container pb-5">
   {{-- верхние карточки --}}
-  <div class="row g-3 mb-2">
-    <div class="col-6 col-md-3"><div class="border rounded p-2 text-center">
-      <div class="small text-muted">Скорость МКС</div>
-      <div class="fs-4">{{ isset(($iss['payload'] ?? [])['velocity']) ? number_format($iss['payload']['velocity'],0,'',' ') : '—' }}</div>
-    </div></div>
-    <div class="col-6 col-md-3"><div class="border rounded p-2 text-center">
-      <div class="small text-muted">Высота МКС</div>
-      <div class="fs-4">{{ isset(($iss['payload'] ?? [])['altitude']) ? number_format($iss['payload']['altitude'],0,'',' ') : '—' }}</div>
-    </div></div>
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm metric-card animate-fade-in text-center">
+        <div class="card-body">
+          <div class="small text-muted mb-2"><i class="bi bi-speedometer2"></i> Скорость МКС</div>
+          <div class="fs-3 fw-bold text-primary">{{ isset(($iss['payload'] ?? [])['velocity']) ? number_format($iss['payload']['velocity'],0,'',' ') : '—' }} <small class="fs-6">км/ч</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card shadow-sm metric-card animate-fade-in text-center">
+        <div class="card-body">
+          <div class="small text-muted mb-2"><i class="bi bi-arrow-up"></i> Высота МКС</div>
+          <div class="fs-3 fw-bold text-success">{{ isset(($iss['payload'] ?? [])['altitude']) ? number_format($iss['payload']['altitude'],0,'',' ') : '—' }} <small class="fs-6">км</small></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="row g-3">
-    {{-- левая колонка: JWST наблюдение (как раньше было под APOD можно держать своим блоком) --}}
+    {{-- левая колонка: JWST наблюдение --}}
     <div class="col-lg-7">
-      <div class="card shadow-sm h-100">
+      <div class="card shadow-sm h-100 animate-slide-up">
         <div class="card-body">
-          <h5 class="card-title">JWST — выбранное наблюдение</h5>
-          <div class="text-muted">Этот блок остаётся как был (JSON/сводка). Основная галерея ниже.</div>
+          <h5 class="card-title"><i class="bi bi-camera"></i> JWST — выбранное наблюдение</h5>
+          <div class="text-muted">Основная галерея доступна на <a href="{{ route('jwst') }}">отдельной странице</a>.</div>
         </div>
       </div>
     </div>
 
     {{-- правая колонка: карта МКС --}}
     <div class="col-lg-5">
-      <div class="card shadow-sm h-100">
+      <div class="card shadow-sm h-100 animate-slide-up">
         <div class="card-body">
-          <h5 class="card-title">МКС — положение и движение</h5>
+          <h5 class="card-title"><i class="bi bi-globe"></i> МКС — положение и движение</h5>
           <div id="map" class="rounded mb-2 border" style="height:300px"></div>
           <div class="row g-2">
             <div class="col-6"><canvas id="issSpeedChart" height="110"></canvas></div>
             <div class="col-6"><canvas id="issAltChart"   height="110"></canvas></div>
+          </div>
+          <div class="mt-2 text-center">
+            <a href="{{ route('iss') }}" class="btn btn-sm btn-outline-primary">Подробнее о ISS →</a>
           </div>
         </div>
       </div>
@@ -267,10 +278,29 @@ document.addEventListener('DOMContentLoaded', async function () {
         async function load(q){
           body.innerHTML = '<tr><td colspan="5" class="text-muted">Загрузка…</td></tr>';
           const url = '/api/astro/events?' + new URLSearchParams(q).toString();
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
+          
           try{
-            const r  = await fetch(url);
+            const r  = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!r.ok) {
+              throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+            }
+            
             const js = await r.json();
             raw.textContent = JSON.stringify(js, null, 2);
+
+            // Обработка ошибок API
+            if (js.error) {
+              const errorMsg = js.error.message || js.error.error || js.error.raw || 'Неизвестная ошибка';
+              body.innerHTML = `<tr><td colspan="5" class="text-warning text-center">
+                <strong>Ошибка API:</strong> ${errorMsg}
+              </td></tr>`;
+              return;
+            }
 
             const rows = collect(js);
             if (!rows.length) {
@@ -287,7 +317,9 @@ document.addEventListener('DOMContentLoaded', async function () {
               </tr>
             `).join('');
           }catch(e){
-            body.innerHTML = '<tr><td colspan="5" class="text-danger">ошибка загрузки</td></tr>';
+            clearTimeout(timeoutId);
+            const errorMsg = e.name === 'AbortError' ? 'Превышено время ожидания' : (e.message || 'ошибка загрузки');
+            body.innerHTML = `<tr><td colspan="5" class="text-danger">${errorMsg}</td></tr>`;
           }
         }
 
@@ -303,37 +335,34 @@ document.addEventListener('DOMContentLoaded', async function () {
     </script>
 
 
-{{-- ===== Данный блок ===== --}}
-<div class="card mt-3">
-  <div class="card-header fw-semibold">CMS</div>
-  <div class="card-body">
-    @php
-      try {
-        // «плохо»: запрос из Blade, без кэша, без репозитория
-        $___b = DB::selectOne("SELECT content FROM cms_blocks WHERE slug='dashboard_experiment' AND is_active = TRUE LIMIT 1");
-        echo $___b ? $___b->content : '<div class="text-muted">блок не найден</div>';
-      } catch (\Throwable $e) {
-        echo '<div class="text-danger">ошибка БД: '.e($e->getMessage()).'</div>';
-      }
-    @endphp
-  </div>
-</div>
+<style>
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-{{-- ===== CMS-блок из БД (нарочно сырая вставка) ===== --}}
-<div class="card mt-3">
-  <div class="card-header fw-semibold">CMS — блок из БД</div>
-  <div class="card-body">
-    @php
-      try {
-        // «плохо»: запрос из Blade, без кэша, без репозитория
-        $___b = DB::selectOne("SELECT content FROM cms_blocks WHERE slug='dashboard_experiment' AND is_active = TRUE LIMIT 1");
-        echo $___b ? $___b->content : '<div class="text-muted">блок не найден</div>';
-      } catch (\Throwable $e) {
-        echo '<div class="text-danger">ошибка БД: '.e($e->getMessage()).'</div>';
-      }
-    @endphp
-  </div>
-</div>
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.6s ease-out;
+  }
+
+  .metric-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+  }
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -351,19 +380,3 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-
-{{-- ===== CMS-блок из БД (нарочно сырая вставка) ===== --}}
-<div class="card mt-3">
-  <div class="card-header fw-semibold">CMS — блок из БД</div>
-  <div class="card-body">
-    @php
-      try {
-        // «плохо»: запрос из Blade, без кэша, без репозитория
-        $___b = DB::selectOne("SELECT content FROM cms_blocks WHERE slug='dashboard_experiment' AND is_active = TRUE LIMIT 1");
-        echo $___b ? $___b->content : '<div class="text-muted">блок не найден</div>';
-      } catch (\Throwable $e) {
-        echo '<div class="text-danger">ошибка БД: '.e($e->getMessage()).'</div>';
-      }
-    @endphp
-  </div>
-</div>
