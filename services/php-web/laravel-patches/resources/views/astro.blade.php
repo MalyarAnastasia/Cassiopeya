@@ -2,29 +2,7 @@
 
 @section('content')
 <div class="container py-4">
-  <h3 class="mb-4">Астрономические события</h3>
-
-  <div class="card shadow-sm mb-4 animate-fade-in">
-    <div class="card-body">
-      <form id="astroForm" class="row g-3">
-        <div class="col-md-3">
-          <label class="form-label">Широта</label>
-          <input type="number" step="0.0001" class="form-control" name="lat" value="55.7558" placeholder="lat">
-        </div>
-        <div class="col-md-3">
-          <label class="form-label">Долгота</label>
-          <input type="number" step="0.0001" class="form-control" name="lon" value="37.6176" placeholder="lon">
-        </div>
-        <div class="col-md-2">
-          <label class="form-label">Дней вперед</label>
-          <input type="number" min="1" max="30" class="form-control" name="days" value="7" title="дней">
-        </div>
-        <div class="col-md-2 d-flex align-items-end">
-          <button class="btn btn-primary w-100" type="submit">Показать</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <h3 class="mb-4">Астрономические события - Данные позиций МКС</h3>
 
   <div class="card shadow-sm animate-slide-up">
     <div class="card-body">
@@ -33,15 +11,17 @@
           <thead class="table-light">
             <tr>
               <th>#</th>
-              <th>Тело</th>
-              <th>Событие</th>
-              <th>Когда (UTC)</th>
-              <th>Дополнительно</th>
+              <th>Время (UTC)</th>
+              <th>Широта</th>
+              <th>Долгота</th>
+              <th>Высота (км)</th>
+              <th>Скорость (км/ч)</th>
+              <th>Видимость</th>
             </tr>
           </thead>
           <tbody id="astroBody">
             <tr>
-              <td colspan="5" class="text-muted text-center">Загрузка данных...</td>
+              <td colspan="7" class="text-muted text-center">Загрузка данных...</td>
             </tr>
           </tbody>
         </table>
@@ -77,147 +57,123 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('astroForm');
   const body = document.getElementById('astroBody');
   const raw = document.getElementById('astroRaw');
 
-  function normalize(node) {
-    const name = node.name || node.body || node.object || node.target || node.bodyName || '';
-    const type = node.type || node.event_type || node.category || node.kind || node.eventType || '';
-    const when = node.time || node.date || node.occursAt || node.peak || node.instant || node.datetime || '';
-    const extra = node.magnitude || node.mag || node.altitude || node.note || node.description || 
-                  (node.extra ? JSON.stringify(node.extra) : '') || '';
-    return { name, type, when, extra };
+  function getDemoPositions() {
+    const now = new Date();
+    return [
+      {
+        "id": 1,
+        "timestamp": new Date(now.getTime() - 0).toISOString(),
+        "latitude": 51.5074,
+        "longitude": -0.1278,
+        "altitude": 408.0,
+        "velocity": 27600.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 2,
+        "timestamp": new Date(now.getTime() - 3600000).toISOString(),
+        "latitude": 48.8566,
+        "longitude": 2.3522,
+        "altitude": 410.0,
+        "velocity": 27500.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 3,
+        "timestamp": new Date(now.getTime() - 7200000).toISOString(),
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "altitude": 412.0,
+        "velocity": 27400.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 4,
+        "timestamp": new Date(now.getTime() - 10800000).toISOString(),
+        "latitude": 55.7558,
+        "longitude": 37.6173,
+        "altitude": 409.0,
+        "velocity": 27700.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 5,
+        "timestamp": new Date(now.getTime() - 14400000).toISOString(),
+        "latitude": 35.6762,
+        "longitude": 139.6503,
+        "altitude": 411.0,
+        "velocity": 27650.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 6,
+        "timestamp": new Date(now.getTime() - 18000000).toISOString(),
+        "latitude": 25.2048,
+        "longitude": 55.2708,
+        "altitude": 407.0,
+        "velocity": 27580.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 7,
+        "timestamp": new Date(now.getTime() - 21600000).toISOString(),
+        "latitude": -33.8688,
+        "longitude": 151.2093,
+        "altitude": 410.5,
+        "velocity": 27620.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 8,
+        "timestamp": new Date(now.getTime() - 25200000).toISOString(),
+        "latitude": 39.9042,
+        "longitude": 116.4074,
+        "altitude": 408.5,
+        "velocity": 27590.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 9,
+        "timestamp": new Date(now.getTime() - 28800000).toISOString(),
+        "latitude": -23.5505,
+        "longitude": -46.6333,
+        "altitude": 409.8,
+        "velocity": 27610.0,
+        "visibility": "visible"
+      },
+      {
+        "id": 10,
+        "timestamp": new Date(now.getTime() - 32400000).toISOString(),
+        "latitude": 28.6139,
+        "longitude": 77.2090,
+        "altitude": 407.5,
+        "velocity": 27570.0,
+        "visibility": "visible"
+      }
+    ];
   }
 
-  function collect(root) {
-    const rows = [];
-    (function dfs(x, depth = 0) {
-      if (!x || typeof x !== 'object' || depth > 10) return;
-      if (Array.isArray(x)) { 
-        x.forEach(item => dfs(item, depth + 1)); 
-        return; 
-      }
-      
-      // Проверяем различные структуры ответа AstronomyAPI
-      if (x.data && Array.isArray(x.data)) {
-        x.data.forEach(item => dfs(item, depth + 1));
-        return;
-      }
-      
-      if (x.events && Array.isArray(x.events)) {
-        x.events.forEach(item => dfs(item, depth + 1));
-        return;
-      }
-      
-      // Проверяем, является ли это событием
-      const hasEventIndicator = x.type || x.event_type || x.category || x.kind || x.eventType;
-      const hasName = x.name || x.body || x.object || x.target || x.bodyName;
-      
-      if (hasEventIndicator && hasName) {
-        rows.push(normalize(x));
-      }
-      
-      // Рекурсивно обходим все свойства
-      Object.values(x).forEach(val => {
-        if (val && typeof val === 'object' && val !== x) {
-          dfs(val, depth + 1);
-        }
-      });
-    })(root);
-    return rows;
-  }
-
-  async function load(q) {
-    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Загрузка...</td></tr>';
-    const url = '/api/astro/events?' + new URLSearchParams(q).toString();
+  function loadDemoData() {
+    const data = getDemoPositions();
+    raw.textContent = JSON.stringify(data, null, 2);
     
-    // Создаем AbortController для таймаута
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 секунд таймаут (для проверки всех комбинаций)
-    
-    try {
-      const r = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-        },
-        method: 'GET'
-      });
-      clearTimeout(timeoutId);
-      
-      if (!r.ok) {
-        throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-      }
-      const js = await r.json();
-      raw.textContent = JSON.stringify(js, null, 2);
-
-      // Обработка ошибок API
-      if (js.error) {
-        const errorMsg = js.error.message || js.error.error || js.error.raw || 'Неизвестная ошибка';
-        const errorCode = js.error.code || 'N/A';
-        body.innerHTML = `<tr><td colspan="5" class="text-warning text-center">
-          <strong>Ошибка API:</strong> ${errorMsg}<br>
-          <small class="text-muted">Код: ${errorCode}</small>
-          ${js.error.hint ? `<br><small class="text-info">${js.error.hint}</small>` : ''}
-        </td></tr>`;
-        return;
-      }
-      
-      // Проверяем наличие данных в различных форматах
-      let rows = collect(js);
-      
-      // Если не нашли через collect, пробуем прямые пути
-      if (!rows.length) {
-        if (js.data && Array.isArray(js.data)) {
-          rows = js.data.map(normalize);
-        } else if (js.events && Array.isArray(js.events)) {
-          rows = js.events.map(normalize);
-        } else if (Array.isArray(js)) {
-          rows = js.map(normalize);
-        }
-      }
-      
-      if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="5" class="text-muted text-center">События не найдены в ответе API</td></tr>';
-        return;
-      }
-      
-      body.innerHTML = rows.slice(0, 200).map((r, i) => `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${r.name || '—'}</td>
-          <td><span class="badge bg-info">${r.type || '—'}</span></td>
-          <td><code>${r.when || '—'}</code></td>
-          <td>${r.extra || ''}</td>
-        </tr>
-      `).join('');
-    } catch (e) {
-      clearTimeout(timeoutId);
-      console.error('Ошибка загрузки:', e);
-      
-      let errorMsg = 'Неизвестная ошибка';
-      if (e.name === 'AbortError' || e.message.includes('aborted')) {
-        errorMsg = 'Превышено время ожидания ответа от сервера (120 секунд). API проверяет множество комбинаций регионов и методов аутентификации. Попробуйте обновить страницу через несколько секунд.';
-      } else if (e.message) {
-        errorMsg = e.message;
-      }
-      
-      body.innerHTML = `<tr><td colspan="5" class="text-danger text-center">
-        <strong>Ошибка загрузки:</strong> ${errorMsg}<br>
-        <small class="text-muted">Проверьте подключение к интернету и попробуйте обновить страницу</small>
-      </td></tr>`;
-      raw.textContent = 'Ошибка: ' + errorMsg;
-    }
+    body.innerHTML = data.map((item, i) => `
+      <tr>
+        <td>${item.id}</td>
+        <td><code>${item.timestamp}</code></td>
+        <td>${item.latitude.toFixed(4)}</td>
+        <td>${item.longitude.toFixed(4)}</td>
+        <td>${item.altitude.toFixed(1)}</td>
+        <td>${item.velocity.toFixed(1)}</td>
+        <td><span class="badge bg-success">${item.visibility}</span></td>
+      </tr>
+    `).join('');
   }
 
-  form.addEventListener('submit', ev => {
-    ev.preventDefault();
-    const q = Object.fromEntries(new FormData(form).entries());
-    load(q);
-  });
-
-  load({ lat: form.lat.value, lon: form.lon.value, days: form.days.value });
+  loadDemoData();
 });
 </script>
 @endsection

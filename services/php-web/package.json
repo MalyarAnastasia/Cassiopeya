@@ -1,0 +1,35 @@
+{
+  "name": "cassiopeya-frontend-tests",
+  "version": "1.0.0",
+  "description": "Frontend tests for Cassiopeya project",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "testMatch": [
+      "**/tests/frontend/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "laravel-patches/resources/js/**/*.js",
+      "tests/frontend/helpers/**/*.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/frontend/setup.js"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+    }
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "@testing-library/dom": "^9.3.4",
+    "@testing-library/jest-dom": "^6.1.5",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
+
